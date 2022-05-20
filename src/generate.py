@@ -18,8 +18,8 @@ from transformers import (
     AutoModelForSeq2SeqLM,
     T5Config
 )
-import MeCab
-import unidic
+# import MeCab
+# import unidic
 import re
 
 # 乱数シードの設定
@@ -37,7 +37,7 @@ device = 'cuda:0'
 mega_tokenizer = T5Tokenizer.from_pretrained("megagonlabs/t5-base-japanese-web")
 mega_model = T5ForConditionalGeneration.from_pretrained("megagonlabs/t5-base-japanese-web").to(device)
 mega_model.resize_token_embeddings(len(mega_tokenizer))
-mega_model.load_state_dict(torch.load('closest_trained.pth'))
+mega_model.load_state_dict(torch.load('/home/sibava/PAS-T5/models/closest_trained.pth'))
 
 # %%
 mega_model.eval()
@@ -67,11 +67,6 @@ def replace_sptok_2_t5tok(sp_text:str) -> str:
 	sp_text = sp_text.replace('↑','<extra_id_98>')
 	sp_text = sp_text.replace('←','<extra_id_97>')
 	return sp_text
-
-# %%
-output = mega_model.generate(mega_tokenizer('私は彼にボールを<extra_id_0>投げた<extra_id_1>',return_tensors="pt").input_ids.to(device))
-
-# %%
 def extrace_argument(output_ids:list,case:str,is_alt:bool=False) -> str:
     sep_id = mega_tokenizer.encode('<extra_id_2>',add_special_tokens=None)[0]
     if(is_alt):
@@ -96,12 +91,7 @@ def extrace_argument(output_ids:list,case:str,is_alt:bool=False) -> str:
         #ガヲニを基準としてそこから前の部分を全部ラベルとする ex)党代表が雄弁に演説した　ガ格:党代表　or 代表,長めで学習してから評価で末尾のsubwordをとればよい
 
 # %%
-input_ids = mega_tokenizer.encode('私が食べる')
-jumanpp.analysis('すもももももも')
-# result = extrace_argument(input_ids,'ga') 
-
-# %%
-dataset = load_dataset('json',data_files={"test":'/home/sibava/PAS-T5/pas-dataset/pas_data.test.jsonl'})
+dataset = load_dataset('json',data_files={"test":'/home/sibava/PAS-T5/datasets/pas-dataset/pas_data.test.jsonl'})
 input_dataset = dataset.with_format(type='torch',columns=['input_ids'])
 
 # %%
@@ -109,7 +99,7 @@ tensor_dataloader = DataLoader(input_dataset['test'],batch_size=16)
 pas_dataset = iter(dataset['test'])
 
 # %%
-with open('decoded_psa_juman.jsonl',mode='w') as f:
+with open('/home/sibava/PAS-T5/decoded/decoded_psa_juman2.jsonl',mode='w') as f:
 	pas_dataset = iter(dataset['test'])
 	dataloader = DataLoader(dataset['test'],batch_size=16)
 	for batch_input in tqdm(iter(tensor_dataloader)):
@@ -127,6 +117,7 @@ with open('decoded_psa_juman.jsonl',mode='w') as f:
 					'case_type':psa_instance['case_types'][case],
 					'predicate':predicate,
 					'alt_type':alt_type,
+					'output_sentence':mega_tokenizer.decode(output),
 					'input_tokens':psa_instance['input_tokens']
 					}
 				f.write(json.dumps(decode_dict) + '\n')
