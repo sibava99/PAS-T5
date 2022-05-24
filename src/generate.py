@@ -1,4 +1,4 @@
-# %%
+
 import json
 import time
 import pprint
@@ -18,9 +18,8 @@ from transformers import (
     AutoModelForSeq2SeqLM,
     T5Config
 )
-# import MeCab
-# import unidic
 import re
+
 
 # 乱数シードの設定
 def set_seed(seed):
@@ -33,28 +32,7 @@ def set_seed(seed):
 set_seed(42)
 device = 'cuda:0'
 
-# %%
-mega_tokenizer = T5Tokenizer.from_pretrained("megagonlabs/t5-base-japanese-web")
-mega_model = T5ForConditionalGeneration.from_pretrained("megagonlabs/t5-base-japanese-web").to(device)
-mega_model.resize_token_embeddings(len(mega_tokenizer))
-mega_model.load_state_dict(torch.load('/home/sibava/PAS-T5/models/closest_trained.pth'))
 
-# %%
-mega_model.eval()
-
-# %%
-case_en_ja = {
-	'ga':'が',
-	'o':'を',
-	'ni':'に',
-	'yotte':'によって'
-}
-
-# %%
-from pyknp import Jumanpp
-jumanpp = Jumanpp()
-
-# %%
 def replace_t5tok_2_sptok(t5_text:str) -> str:
 	t5_text = t5_text.replace('<pad>','')
 	t5_text = t5_text.replace('</s>','')
@@ -90,16 +68,36 @@ def extrace_argument(output_ids:list,case:str,is_alt:bool=False) -> str:
         #サブワードの末尾を取る場合はこのトークンをsentencepieceでトークナイズしてから末尾を取る
         #ガヲニを基準としてそこから前の部分を全部ラベルとする ex)党代表が雄弁に演説した　ガ格:党代表　or 代表,長めで学習してから評価で末尾のsubwordをとればよい
 
-# %%
-dataset = load_dataset('json',data_files={"test":'/home/sibava/PAS-T5/datasets/pas-dataset/pas_data.test.jsonl'})
+
+mega_tokenizer = T5Tokenizer.from_pretrained("megagonlabs/t5-base-japanese-web")
+mega_model = T5ForConditionalGeneration.from_pretrained("megagonlabs/t5-base-japanese-web").to(device)
+mega_model.resize_token_embeddings(len(mega_tokenizer))
+mega_model.load_state_dict(torch.load('/home/sibava/PAS-T5/models/singleArg/checkpoint-12500/pytorch_model.bin'))
+
+
+mega_model.eval()
+
+
+case_en_ja = {
+	'ga':'が',
+	'o':'を',
+	'ni':'に',
+	'yotte':'によって'
+}
+
+
+from pyknp import Jumanpp
+jumanpp = Jumanpp()
+
+
+dataset = load_dataset('json',data_files={"test":'/home/sibava/PAS-T5/datasets/pas-dataset-singleArg/test.doc.jsonl'})
 input_dataset = dataset.with_format(type='torch',columns=['input_ids'])
 
-# %%
 tensor_dataloader = DataLoader(input_dataset['test'],batch_size=16)
 pas_dataset = iter(dataset['test'])
 
-# %%
-with open('/home/sibava/PAS-T5/decoded/decoded_psa_juman2.jsonl',mode='w') as f:
+
+with open('/home/sibava/PAS-T5/decoded/decoded_psa_singleArg.jsonl',mode='w') as f:
 	pas_dataset = iter(dataset['test'])
 	dataloader = DataLoader(dataset['test'],batch_size=16)
 	for batch_input in tqdm(iter(tensor_dataloader)):
@@ -109,6 +107,8 @@ with open('/home/sibava/PAS-T5/decoded/decoded_psa_juman2.jsonl',mode='w') as f:
 			alt_type = psa_instance['alt_type']
 			predicate = psa_instance['predicate']
 			for case in ['ga','o','ni']:
+				if (psa_instance['case_types'][case] == None):
+					continue
 				argument = extrace_argument(output,case)
 				decode_dict = {
 					'output_token':argument,
@@ -121,5 +121,6 @@ with open('/home/sibava/PAS-T5/decoded/decoded_psa_juman2.jsonl',mode='w') as f:
 					'input_tokens':psa_instance['input_tokens']
 					}
 				f.write(json.dumps(decode_dict) + '\n')
+
 
 

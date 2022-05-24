@@ -1,10 +1,11 @@
-# %%
+
 import argparse
 import glob
 import os
 import json
 import time
-import logging
+import logzero
+from logzero import logger
 import random
 import numpy as np
 
@@ -20,6 +21,7 @@ from transformers import (
     AutoModelForSeq2SeqLM,
     T5Config
 )
+from transformers.optimization import Adafactor, AdafactorSchedule
 
 # 乱数シードの設定
 def set_seed(seed):
@@ -31,53 +33,70 @@ def set_seed(seed):
 
 set_seed(42)
 
+def create_parser():
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--train', type=str, required=True,
+                        help="Path to train dataset'")
+    parser.add_argument('--dev', type=str, required=True,
+                        help="Path to dev dataset'")
+    parser.add_argument('--output',type=str, required=True,
+                        help="Path to output directory.")
+    parser.add_argument('--lr',type=float, required=True,
+                        help="learning rate")
+    parser.add_argument('--batch_size',type=int, required=True,
+                        help="number of batch size")
+    parser.add_argument('--epoch',type=int, required=True,
+                        help="number of epoch")
 
+    return parser
 
-# %%
-mega_tokenizer = T5Tokenizer.from_pretrained("megagonlabs/t5-base-japanese-web")
-mega_model = T5ForConditionalGeneration.from_pretrained("megagonlabs/t5-base-japanese-web")
-mega_model.resize_token_embeddings(len(mega_tokenizer))
+def main():
+    parser = create_parser()
+    args = parser.parse_args()
+    output = args.output
+    os.mkdir(output)
+    logzero.logfile(os.path.join(output,'trainig.log'))
+    logger.info(args)
+    mega_tokenizer = T5Tokenizer.from_pretrained("megagonlabs/t5-base-japanese-web")
+    mega_model = T5ForConditionalGeneration.from_pretrained("megagonlabs/t5-base-japanese-web")
+    mega_model.resize_token_embeddings(len(mega_tokenizer))
 
+    dataset = load_dataset('json',data_files={"train":args.train,
+    "dev":args.dev})
 
-# %%
-dataset = load_dataset('json',data_files={"train":'/home/sibava/PAS-T5/pas-dataset-yotte/train.doc.jsonl',
-"dev":'/home/sibava/PAS-T5/pas-dataset-yotte/dev.doc.jsonl'})
+    dataset.set_format(type='torch',columns=['input_ids','labels'])
 
-# %%
-dataset.set_format(type='torch',columns=['input_ids','labels'])
+    TRAIN_BATCH_SIZE  = args.batch_size
+    EVAL_BATCH_SIZE  = args.batch_size
+    NUM_EPOCHS  = args.epoch
 
-# %%
-TRAIN_BATCH_SIZE  = 16
-EVAL_BATCH_SIZE  = 16
-NUM_EPOCHS  = 3
+    training_args = TrainingArguments(
+        output,
+        num_train_epochs = NUM_EPOCHS,
+        evaluation_strategy = "steps",
+        adafactor = True,
+        learning_rate=1e-4,
+        lr_scheduler_type="constant",
+        per_device_train_batch_size = TRAIN_BATCH_SIZE,
+        per_device_eval_batch_size  = EVAL_BATCH_SIZE,
+        eval_steps = 500,
+        logging_steps = 500,
+        save_steps = 500
+    )
+    trainer = Trainer(
+        model=mega_model,
+        args=training_args,
+        tokenizer=mega_tokenizer,
+        train_dataset=dataset["train"],
+        eval_dataset=dataset["dev"]
+    )
 
-training_args = TrainingArguments(
-    "./finetune_yotte",
-    num_train_epochs = NUM_EPOCHS,
-    evaluation_strategy = "steps",
-    adafactor = True,
-    learning_rate=1e-3,
-    lr_scheduler_type="constant",
-    per_device_train_batch_size = TRAIN_BATCH_SIZE,
-    per_device_eval_batch_size  = EVAL_BATCH_SIZE,
-    eval_steps = 500,
-    logging_steps = 500,
-    save_steps = 500
-)
-# %%
-trainer = Trainer(
-    model=mega_model,
-    args=training_args,
-    tokenizer=mega_tokenizer,
-    train_dataset=dataset["train"],
-    eval_dataset=dataset["dev"]
-)
+    trainer.train()
 
-# %%
-trainer.train()
-# %%
-model_path = 'yotte_trained.pth'
-torch.save(mega_model.state_dict(), model_path)
+    model_path = os.path.join(output,'final_model.pth')
+    torch.save(mega_model.state_dict(), model_path)
 
-
+if __name__ == "__main__":
+    main()
+    logger.info("done")
 
