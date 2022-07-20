@@ -1,9 +1,16 @@
 import json
 import argparse
-from transformers import T5Tokenizer
+# from transformers import T5Tokenizer
+import itertools
 from pprint import pprint
 from tqdm.auto import tqdm
 from multiprocessing import Pool
+
+case_roma_kana = {
+	'ga':'が',
+	'o':'を',
+	'ni':'に'
+}
 
 def create_parser():
 	parser = argparse.ArgumentParser()
@@ -11,17 +18,58 @@ def create_parser():
 	parser.add_argument('--output_path',help='output path')
 	return parser
 
-def main():
-	parser = create_parser()
-	args = parser.parse_args()
-	psa_instance_path = args.psa_instance
-	output_path = args.output_path
+def edit_argsurface(arg_dict:dict)->str:
+	if(arg_dict['arg_type'] == 'none'):
+		arg_dict['arg_surface'] = ''
+		return
+	elif(arg_dict['arg_type'] == 'exog'):
+		arg_dict['arg_surface'] = '<extra_id_99>'
+	elif(arg_dict['arg_type'] == 'exo1'):
+		arg_dict['arg_surface'] = '<extra_id_98>'
+	elif(arg_dict['arg_type'] == 'exo2'):
+		arg_dict['arg_surface'] = '<extra_id_97>'
+	return arg_dict['arg_surface'] + case_roma_kana[arg_dict['case_type']]
+def main(triplet:list)->str:
+	ga_str,o_str,ni_str = triplet
+	ga_dict = json.loads(ga_str)
+	o_dict = json.loads(o_str) 
+	ni_dict = json.loads(ni_str)
+	dicts = [ga_dict,o_dict,ni_dict]
 
-	with open(psa_instance_path,mode='r') as f:
-		lines = f.readlines()
-	for line in lines:
-		psa_dict = json.loads(line)
+	arg_and_case = ''
+	for arg_dict in dicts:
+		arg_and_case += edit_argsurface(arg_dict)
+	pred_surface = ga_dict['pred_surface']
+	label = arg_and_case + pred_surface
+
+	context = ga_dict['context']
+	pred_sent_idx = ga_dict['pred_sent_index']
+	pred_indices = ga_dict['pred_indices']
+	context[pred_sent_idx].insert(pred_indices[0],"<extra_id_0>")
+	context[pred_sent_idx].insert(pred_indices[-1] + 2,"<extra_id_1>")
+	concated_context = ''.join(list(itertools.chain.from_iterable(context)))
+	
+
+
+	return 
 		
+# parser = create_parser()
+# args = parser.parse_args()
 
-if __name__ == '__main__':
-	main()
+# with open(args.psa_instance,mode='r') as f:
+# 	lines = f.readlines()
+# 	pred_triplet = [] # ガ,ヲ,ニの3つの情報をまとめて述語単位のリストとする
+# 	for i in range(0,len(lines),3):
+# 		pred_triplet.append(lines[i:i+n])
+	
+# # tokenizer = T5Tokenizer.from_pretrained('megagonlabs/t5-base-japanese-web')
+# result = []
+# with Pool(processes=5) as pool:
+# 	r = pool.map(main,pred_triplet)
+# jsonl = r.join('\n')
+# with open(args.output_path,mode='w') as out:
+# 	out.write(jsonl)
+triplet = [r'{"context": [["後", "に", "昭和", "に", "入って", "、", "反軍", "演説", "で", "名", "を", "馳せた", "憲政", "会", "の", "斎藤", "隆夫", "が", "、", "日記", "に", "こう", "記した", "の", "は", "、", "いわゆる", "男子", "普通", "選挙", "法", "が", "成立", "した", "一九二五", "年", "三", "月", "二十九", "日", "の", "こと", "であった", "。"]], "pred_surface": "入って", "alt_type": "active", "pred_sent_index": 0, "pred_indices": [4], "case_type": "ga", "arg_type": "exog", "arg_surface": "exog", "arg_sent_index": [-1], "arg_indices": [-1], "goldchain": ["exog"], "ntc_path": "NTC_1.5_split/train/9501ED-0000-950101020.ntc"}',
+r'{"context": [["後", "に", "昭和", "に", "入って", "、", "反軍", "演説", "で", "名", "を", "馳せた", "憲政", "会", "の", "斎藤", "隆夫", "が", "、", "日記", "に", "こう", "記した", "の", "は", "、", "いわゆる", "男子", "普通", "選挙", "法", "が", "成立", "した", "一九二五", "年", "三", "月", "二十九", "日", "の", "こと", "であった", "。"]], "pred_surface": "入って", "alt_type": "active", "pred_sent_index": 0, "pred_indices": [4], "case_type": "o", "arg_type": "none", "arg_surface": "none", "arg_sent_index": [-1], "arg_indices": [-1], "goldchain": ["none"], "ntc_path": "NTC_1.5_split/train/9501ED-0000-950101020.ntc"}',
+r'{"context": [["後", "に", "昭和", "に", "入って", "、", "反軍", "演説", "で", "名", "を", "馳せた", "憲政", "会", "の", "斎藤", "隆夫", "が", "、", "日記", "に", "こう", "記した", "の", "は", "、", "いわゆる", "男子", "普通", "選挙", "法", "が", "成立", "した", "一九二五", "年", "三", "月", "二十九", "日", "の", "こと", "であった", "。"]], "pred_surface": "入って", "alt_type": "active", "pred_sent_index": 0, "pred_indices": [4], "case_type": "ni", "arg_type": "dep", "arg_surface": "昭和", "arg_sent_index": [2], "arg_indices": [2], "goldchain": ["昭和"], "ntc_path": "NTC_1.5_split/train/9501ED-0000-950101020.ntc"}']
+main(triplet)
