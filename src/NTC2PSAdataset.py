@@ -35,12 +35,14 @@ class IdMorph(TypedDict):
     * eq_group : 共参照グループ。この値が同じ形態素は共参照関係にある
     * sent_index : 形態素が出現する文番号
     * morph_indices : 形態素が出現する文中の位置。形態素が[佐藤,さん]のように分離されているときは[29,30]のようになる
+    * morph_bunsetsu_index : 形態素が出現する文節番号
     """
 
     surface_string:str
     eq_group:str
     sent_index:int
     morph_indices:list[int]
+    morph_bunsetsu_index:int
 
 class Pred(TypedDict):
     surface_string:str
@@ -48,14 +50,14 @@ class Pred(TypedDict):
     sent_index:int
     pred_indices:List[int]
     arg_list:List[IdMorph]
-
+    pred_bunsetsu_index:int
 
 def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--ntc_dir',help='path to NTC')
     parser.add_argument('--output_path',help='output path')
     parser.add_argument('--concat',action='store_true',help='Suffixes are treated as terms by concatenating with the preceding morpheme')
-
+    
     return parser
 
 def extract_pat(pat:str,text:str,group:int = 1)->str:
@@ -76,30 +78,15 @@ def _concat_arg(lines,line_index,morph_index,surface_string,morph_indices,concat
         surface_string,morph_indices = _concat_arg(lines, line_index -1 , morph_index -1, surface_string, morph_indices)
     return surface_string,morph_indices
 
-def create_arglist(psa_tag:str) -> list[Arg]:
-    arg_list = []
-    arg_info = [tag for tag in psa_tag.split('/') if tag.startswith(('ga','o','ni'))]
-    while len(arg_info) > 0:
-        arg_id = arg_info.pop(0)
-        arg_type = arg_info.pop(0)
-        
-        case_type = extract_pat(case_pat, arg_id)
-        arg_id = extract_pat(case_id_pat,arg_id,2)
-        arg_type = extract_pat(arg_type_pat,arg_type)
-        arg:Arg = {
-            'arg_id':arg_id,
-            'case_type':case_type,
-            'arg_type':arg_type
-        }
-        arg_list.append(arg)
-    return arg_list
 
-def new_create_arglist(psa_tag:str) -> list[Arg]:
+def create_arglist(psa_tag:str) -> list[Arg]:
     arg_list = []
     for case in ['ga','o','ni']:
         arg_id = extract_pat(case + case_id_pat,psa_tag)
         arg_type = extract_pat(case + arg_type_pat,psa_tag)
-        if(arg_id == '' and arg_type == ''):
+        if (arg_id != '' and arg_type == ''):
+            arg_type = 'undef' #サ変名詞や名詞+判定詞においてtypeが記載されていない場合
+        elif (arg_id == '' and arg_type == ''):
             arg_id = 'none'
             arg_type = 'none'
         arg:Arg = {
@@ -118,25 +105,29 @@ def extract_psa_info(ntc_text:str,concat:bool) -> dict:
             'surface_string': 'exog',
             'eq_group': '',
             'sent_index':-1,
-            'morph_indices':[-1]
+            'morph_indices':[-1],
+            'morph_bunsetsu_index':-1
         }
     exo1:IdMorph = {
             'surface_string': 'exo1',
             'eq_group': '',
             'sent_index':-1,
-            'morph_indices':[-1]
+            'morph_indices':[-1],
+            'morph_bunsetsu_index':-1
         }
     exo2:IdMorph = {
             'surface_string': 'exo2',
             'eq_group': '',
             'sent_index':-1,
-            'morph_indices':[-1]
+            'morph_indices':[-1],
+            'morph_bunsetsu_index':-1
         }
     none:IdMorph = {
             'surface_string': 'none',
             'eq_group': '',
             'sent_index':-1,
-            'morph_indices':[-1]
+            'morph_indices':[-1],
+            'morph_bunsetsu_index':-1
         }
 
     idmorphs = {
@@ -149,14 +140,18 @@ def extract_psa_info(ntc_text:str,concat:bool) -> dict:
     sentences = [[]]
     sent_index = 0
     morph_index = 0
+    bunsetsu_index = -1
     preds = []
     for i in range(len(lines)):
         line = lines[i]
-        if(line.startswith(('*','#'))):
-            pass
+        if(line.startswith('#')):
+            continue
+        elif(line.startswith('*')):
+            bunsetsu_index +=1
         elif(line.startswith('EOS')):
             sent_index +=1
             morph_index = 0
+            bunsetsu_index = -1
             sentences.append([])
         else:
             surface_string,reading,lemma,pos,grained_pos,conjugate_type,conjugate_form,psa_tag = line.split(' ')
@@ -168,13 +163,14 @@ def extract_psa_info(ntc_text:str,concat:bool) -> dict:
                     sahen_noun = sentences[sent_index][morph_index-1]
                     surface_string = sahen_noun + surface_string
                     pred_indices.insert(0, morph_index-1)
-                arg_list = new_create_arglist(psa_tag)
+                arg_list = create_arglist(psa_tag)
                 pred:Pred ={
                         'surface_string':surface_string,
                         'alt_type':extract_pat(alt_pat,psa_tag),
                         'sent_index':sent_index,
                         'pred_indices':pred_indices,
                         'arg_list':arg_list,
+                        'pred_bunsetsu_index':bunsetsu_index
                     }
                 preds.append(pred)
 
@@ -187,7 +183,8 @@ def extract_psa_info(ntc_text:str,concat:bool) -> dict:
                         'surface_string' : surface_string,
                         'eq_group': eq_id,
                         'sent_index':sent_index,
-                        'morph_indices':morph_indices
+                        'morph_indices':morph_indices,
+                        'morph_bunsetsu_index':bunsetsu_index
                 }
                 if(arg_id  in idmorphs):
                     idmorphs[arg_id].append(
@@ -224,26 +221,57 @@ def calc_abs_index(sentences:list,sent_index:int,index:int)->int:
 
 def search_nearest_idmorph(coref_list:list,pred_sent_index:str,pred_indices:list,sentences:list)->IdMorph:
     pred_index = calc_abs_index(sentences,int(pred_sent_index),int(pred_indices[0]))
-    min_pred_distance = 10000
+    min_arg_pred_distance = 10000
     for arg in coref_list:
-        arg_surface,eq_id,arg_sent_index,morph_indices,= arg.values() 
-        arg_index = calc_abs_index(sentences,int(arg_sent_index),int(morph_indices[0]))
-        if(abs(pred_index - arg_index) < min_pred_distance):
-            min_pred_distance = abs(pred_index - arg_index)
-            nearest_arg = arg
-    return nearest_arg
+        arg_surface,eq_id,morph_sent_index,morph_indices,morph_bunsetsu_index= arg.values() 
+        arg_index = calc_abs_index(sentences,int(morph_sent_index),int(morph_indices[0]))
+        arg_pred_distance = pred_index - arg_index
+        if(arg_pred_distance < min_arg_pred_distance):
+            if(arg_pred_distance > 0):
+                nearest_anaphora = arg
+            else:
+                nearest_cataphora = arg
+            min_pred_distance = arg_pred_distance
+        try:
+            return nearest_anaphora
+        except NameError:
+            return nearest_cataphora
 
+def make_dep_tree(ntc_text:str)->list:
+    lines = ntc_text.splitlines()
+    dep_trees = []
+    for line in lines:
+        if(line.startswith('#')):
+            dep_tree = {}
+        elif(line.startswith('*')):
+            _,bunsetsu_id,head = line.split()
+            head_id = re.search(r'\d+',head).group()
+            dep_tree[bunsetsu_id] = head_id
+        elif(line.startswith('EOS')):
+            dep_trees.append(dep_tree)
+    return(dep_trees)
+    
 def determin_argtype(pred:Pred,idmorph:IdMorph,arg_type:str)->str:
     if(arg_type == 'dep'):
         return 'dep'
     elif(arg_type == 'none'):
         return 'none'
-    elif(idmorph['surface_string'].startswith('exo')):
+    elif(arg_type == 'zero' and idmorph['surface_string'].startswith('exo')):
         return idmorph['surface_string'] #exog,exo1,exo2
-    elif(pred['sent_index'] == idmorph['sent_index']):
+    elif(arg_type == 'zero' and pred['sent_index'] == idmorph['sent_index']):
         return 'intra'
-    else:
+    elif(arg_type == 'zero' and pred['sent_index'] != idmorph['sent_index']):
         return 'inter' 
+    elif(arg_type == 'undef'):
+        if(pred['sent_index'] != idmorph['sent_index']):
+            return 'inter'
+        elif(pred['pred_bunsetsu_index'] == dep_tree[idmorph['morph_bunsetsu_index']] or idmorph['morph_busentsu_index'] == dep_tree[pred['pred_bunsetsu_index']] or pred['pred_bunsetsu_index'] == idmorph['morph_bunsetsu_index']):
+            return 'dep'
+        else:
+            assert pred['pred_bunsetsu_index'] != dep_tree[idmorph['morph_bunsetsu_index']] and idmorph['morph_busentsu_index'] != dep_tree[pred['pred_bunsetsu_index']] and pred['pred_bunsetsu_index'] != idmorph['morph_bunsetsu_index']
+            return 'intra'
+    else:
+        print("Can't determin arg type")
 
 def main():
     parser = create_parser()
@@ -260,44 +288,48 @@ def main():
 
     # ntc_paths = glob.glob(os.path.join(ntc_dir,'dat/ntc/knp/*'))
     for split in ['train','test','dev']:
-        print(f'Processing {split}-dataset')
-        ntc_paths = glob.glob(os.path.join(ntc_dir,split,'*'))
-        # ntc_paths = glob.glob(os.path.join(ntc_dir,'*'))
-        output_file = open(os.path.join(output_path,split + 'psa.jsonl'),encoding='utf-8',mode='w')
-        for ntc_path in tqdm(ntc_paths):
-            with open(ntc_path,encoding='utf-8',mode='r') as f:
-                ntc_text = f.read()
-            psa_info = extract_psa_info(ntc_text,args.concat)
-            preds = psa_info['preds']
-            idmorphs = psa_info['idmorphs'] #idをkeyとし同じidをもつIdMorph(共参照関係にある)のリストをvalueとする辞書
-            sentences = psa_info['sentences']
-            # predsを順に回しidのsurfaceをidmorphsから取ってくる,共参照の処理,sentencesから述語が登場する文までを文脈として取ってくる
-            # eqが同じ形態素にはなぜかidも同じものがふられていた。id_dictを生成し直しこれらを区別する必要がある？
-            # 同じidでも距離によって区別し、最も近い物をgold,遠いものをgoldchainとする。この距離は自分で測る
-            goldchains = create_goldchains(idmorphs=idmorphs)
-            for pred in preds:
-                context = sentences[:pred["sent_index"]+1]
-                for arg in pred["arg_list"]:
-                    coref_list = idmorphs[arg['arg_id']]
-                    nearlest_idmorph = search_nearest_idmorph(coref_list,pred['sent_index'],pred['pred_indices'],sentences)
-                    arg_type = determin_argtype(pred,nearlest_idmorph,arg['arg_type'])
-                    goldchain = goldchains[arg['arg_id']]
-                    psa_instance = {
-                        'context':context,
-                        'pred_surface':pred['surface_string'],
-                        'alt_type':pred['alt_type'],
-                        'pred_sent_index':pred['sent_index'],
-                        'pred_indices':pred['pred_indices'],
-                        'case_type':arg['case_type'],
-                        'arg_type':arg_type,
-                        'arg_surface':nearlest_idmorph['surface_string'],
-                        'arg_sent_index':nearlest_idmorph['sent_index'],
-                        'arg_indices':nearlest_idmorph['morph_indices'],
-                        'goldchain':goldchain,
-                        'ntc_path':ntc_path
-                    }
-                    output_file.write(json.dumps(psa_instance) + '\n')
-        output_file.close()
-    
+            print(f'Processing {split}-dataset')
+            ntc_paths = glob.glob(os.path.join(ntc_dir,split,'*'))
+            # ntc_paths = glob.glob(os.path.join(ntc_dir,'*'))
+            output_file = open(os.path.join(output_path,split + '.psa.jsonl'),encoding='utf-8',mode='w')
+            for ntc_path in tqdm(ntc_paths):
+                with open(ntc_path,encoding='utf-8',mode='r') as f:
+                    ntc_text = f.read()
+                psa_info = extract_psa_info(ntc_text,args.concat)
+                preds = psa_info['preds']
+                idmorphs = psa_info['idmorphs'] #idをkeyとし同じidをもつIdMorph(共参照関係にある)のリストをvalueとする辞書
+                sentences = psa_info['sentences']
+                dep_tree = make_dep_tree(ntc_text)
+
+                # predsを順に回しidのsurfaceをidmorphsから取ってくる,共参照の処理,sentencesから述語が登場する文までを文脈として取ってくる
+                # eqが同じ形態素にはなぜかidも同じものがふられていた。id_dictを生成し直しこれらを区別する必要がある？
+                # 同じidでも距離によって区別し、最も近い物をgold,遠いものをgoldchainとする。この距離は自分で測る
+                goldchains = create_goldchains(idmorphs=idmorphs)
+                for pred in preds:
+                    context = sentences[:pred["sent_index"]+1]
+                    for arg in pred["arg_list"]:
+                        coref_list = idmorphs[arg['arg_id']]
+                        nearlest_idmorph = search_nearest_idmorph(coref_list,pred['sent_index'],pred['pred_indices'],sentences)
+                        arg_type = determin_argtype(pred,nearlest_idmorph,arg['arg_type'])
+                        goldchain = goldchains[arg['arg_id']]
+                        psa_instance = {
+                            'context':context,
+                            'pred_surface':pred['surface_string'],
+                            'alt_type':pred['alt_type'],
+                            'pred_sent_index':pred['sent_index'],
+                            'pred_indices':pred['pred_indices'],
+                            'case_type':arg['case_type'],
+                            'arg_type':arg_type,
+                            'arg_surface':nearlest_idmorph['surface_string'],
+                            'arg_sent_index':nearlest_idmorph['sent_index'],
+                            'arg_indices':nearlest_idmorph['morph_indices'],
+                            'goldchain':goldchain,
+                            'ntc_path':ntc_path
+                        }
+                        output_file.write(json.dumps(psa_instance) + '\n')
+            output_file.close()
 if __name__ == '__main__':
+    # with open('/home/sibava/PAS-T5/datasets/sampleNTC/dev/950112-0000-950112002.ntc',mode='r') as f:
+    #     ntc_text = f.read()
+    # pprint(make_dep_tree(ntc_text))
     main()
