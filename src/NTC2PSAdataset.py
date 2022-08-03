@@ -21,7 +21,7 @@ class Arg(TypedDict):
     
     * arg_id : NTCにおいて与えられたid
     * case_type : 格の種類　[が,を,に]
-    * arg_type : 述語と項の間の関係 [dep or zero]
+    * arg_type : 述語と項の間の関係 [dep or zero or none]
     """
     arg_id:str
     case_type:str
@@ -225,17 +225,20 @@ def search_nearest_idmorph(coref_list:list,pred_sent_index:str,pred_indices:list
     for arg in coref_list:
         arg_surface,eq_id,morph_sent_index,morph_indices,morph_bunsetsu_index= arg.values() 
         arg_index = calc_abs_index(sentences,int(morph_sent_index),int(morph_indices[0]))
-        arg_pred_distance = pred_index - arg_index
+        arg_pred_distance = abs(pred_index - arg_index)
         if(arg_pred_distance < min_arg_pred_distance):
-            if(arg_pred_distance > 0):
-                nearest_anaphora = arg
-            else:
-                nearest_cataphora = arg
-            min_pred_distance = arg_pred_distance
-        try:
-            return nearest_anaphora
-        except NameError:
-            return nearest_cataphora
+            # if(arg_pred_distance > 0):
+            #     nearest_anaphora = arg
+            # else:
+            #     nearest_cataphora = arg
+            # min_pred_distance = arg_pred_distance
+            min_arg_pred_distance = arg_pred_distance
+            nearest_arg = arg
+    return nearest_arg
+        # try:
+        #     return nearest_anaphora
+        # except NameError:
+        #     return nearest_cataphora
 
 def make_dep_trees(ntc_text:str)->list:
     lines = ntc_text.splitlines()
@@ -264,14 +267,13 @@ def determin_argtype(pred:Pred,idmorph:IdMorph,arg_type:str,dep_trees:list)->str
     elif(arg_type == 'zero' and (pred['sent_index'] != idmorph['sent_index'])):
         return 'inter' 
     elif(arg_type == 'undef'):
-        # if(pred['sent_index'] != idmorph['sent_index']):
-        #     return 'inter'
-        # elif(pred['pred_bunsetsu_index'] == dep_tree[idmorph['morph_bunsetsu_index']] or idmorph['morph_bunsetsu_index'] == dep_tree[pred['pred_bunsetsu_index']] or pred['pred_bunsetsu_index'] == idmorph['morph_bunsetsu_index']):
-        #     return 'dep'
-        # else:
-        #     assert pred['pred_bunsetsu_index'] != dep_tree[idmorph['morph_bunsetsu_index']] and idmorph['morph_bunsetsu_index'] != dep_tree[pred['pred_bunsetsu_index']] and pred['pred_bunsetsu_index'] != idmorph['morph_bunsetsu_index']
-        #     return 'intra'
-        return 'undef'
+        if(pred['sent_index'] != idmorph['sent_index']):
+            return 'inter'
+        elif(pred['pred_bunsetsu_index'] == dep_tree[idmorph['morph_bunsetsu_index']] or idmorph['morph_bunsetsu_index'] == dep_tree[pred['pred_bunsetsu_index']] or pred['pred_bunsetsu_index'] == idmorph['morph_bunsetsu_index']):
+            return 'dep'
+        else:
+            assert pred['pred_bunsetsu_index'] != dep_tree[idmorph['morph_bunsetsu_index']] and idmorph['morph_bunsetsu_index'] != dep_tree[pred['pred_bunsetsu_index']] and pred['pred_bunsetsu_index'] != idmorph['morph_bunsetsu_index']
+            return 'intra'
     else:
         print("Can't determin arg type")
 
