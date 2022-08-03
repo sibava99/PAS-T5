@@ -75,7 +75,7 @@ def _concat_arg(lines,line_index,morph_index,surface_string,morph_indices,concat
     morph_indices.insert(0,morph_index)
     previous_line = lines[line_index - 1]
     if((concat == True) and ('接尾辞' in lines[line_index])):
-        surface_string,morph_indices = _concat_arg(lines, line_index -1 , morph_index -1, surface_string, morph_indices)
+        surface_string,morph_indices = _concat_arg(lines, line_index -1 , morph_index -1, surface_string, morph_indices,concat)
     return surface_string,morph_indices
 
 
@@ -237,7 +237,7 @@ def search_nearest_idmorph(coref_list:list,pred_sent_index:str,pred_indices:list
         except NameError:
             return nearest_cataphora
 
-def make_dep_tree(ntc_text:str)->list:
+def make_dep_trees(ntc_text:str)->list:
     lines = ntc_text.splitlines()
     dep_trees = []
     for line in lines:
@@ -245,13 +245,14 @@ def make_dep_tree(ntc_text:str)->list:
             dep_tree = {}
         elif(line.startswith('*')):
             _,bunsetsu_id,head = line.split()
-            head_id = re.search(r'\d+',head).group()
-            dep_tree[bunsetsu_id] = head_id
+            head_id = int(re.search(r'\d+',head).group())
+            dep_tree[int(bunsetsu_id)] = head_id
         elif(line.startswith('EOS')):
             dep_trees.append(dep_tree)
     return(dep_trees)
     
-def determin_argtype(pred:Pred,idmorph:IdMorph,arg_type:str)->str:
+def determin_argtype(pred:Pred,idmorph:IdMorph,arg_type:str,dep_trees:list)->str:
+    dep_tree = dep_trees[pred['sent_index']]
     if(arg_type == 'dep'):
         return 'dep'
     elif(arg_type == 'none'):
@@ -260,16 +261,17 @@ def determin_argtype(pred:Pred,idmorph:IdMorph,arg_type:str)->str:
         return idmorph['surface_string'] #exog,exo1,exo2
     elif(arg_type == 'zero' and pred['sent_index'] == idmorph['sent_index']):
         return 'intra'
-    elif(arg_type == 'zero' and pred['sent_index'] != idmorph['sent_index']):
+    elif(arg_type == 'zero' and (pred['sent_index'] != idmorph['sent_index'])):
         return 'inter' 
     elif(arg_type == 'undef'):
-        if(pred['sent_index'] != idmorph['sent_index']):
-            return 'inter'
-        elif(pred['pred_bunsetsu_index'] == dep_tree[idmorph['morph_bunsetsu_index']] or idmorph['morph_busentsu_index'] == dep_tree[pred['pred_bunsetsu_index']] or pred['pred_bunsetsu_index'] == idmorph['morph_bunsetsu_index']):
-            return 'dep'
-        else:
-            assert pred['pred_bunsetsu_index'] != dep_tree[idmorph['morph_bunsetsu_index']] and idmorph['morph_busentsu_index'] != dep_tree[pred['pred_bunsetsu_index']] and pred['pred_bunsetsu_index'] != idmorph['morph_bunsetsu_index']
-            return 'intra'
+        # if(pred['sent_index'] != idmorph['sent_index']):
+        #     return 'inter'
+        # elif(pred['pred_bunsetsu_index'] == dep_tree[idmorph['morph_bunsetsu_index']] or idmorph['morph_bunsetsu_index'] == dep_tree[pred['pred_bunsetsu_index']] or pred['pred_bunsetsu_index'] == idmorph['morph_bunsetsu_index']):
+        #     return 'dep'
+        # else:
+        #     assert pred['pred_bunsetsu_index'] != dep_tree[idmorph['morph_bunsetsu_index']] and idmorph['morph_bunsetsu_index'] != dep_tree[pred['pred_bunsetsu_index']] and pred['pred_bunsetsu_index'] != idmorph['morph_bunsetsu_index']
+        #     return 'intra'
+        return 'undef'
     else:
         print("Can't determin arg type")
 
@@ -299,7 +301,7 @@ def main():
                 preds = psa_info['preds']
                 idmorphs = psa_info['idmorphs'] #idをkeyとし同じidをもつIdMorph(共参照関係にある)のリストをvalueとする辞書
                 sentences = psa_info['sentences']
-                dep_tree = make_dep_tree(ntc_text)
+                dep_trees = make_dep_trees(ntc_text)
 
                 # predsを順に回しidのsurfaceをidmorphsから取ってくる,共参照の処理,sentencesから述語が登場する文までを文脈として取ってくる
                 # eqが同じ形態素にはなぜかidも同じものがふられていた。id_dictを生成し直しこれらを区別する必要がある？
@@ -310,7 +312,7 @@ def main():
                     for arg in pred["arg_list"]:
                         coref_list = idmorphs[arg['arg_id']]
                         nearlest_idmorph = search_nearest_idmorph(coref_list,pred['sent_index'],pred['pred_indices'],sentences)
-                        arg_type = determin_argtype(pred,nearlest_idmorph,arg['arg_type'])
+                        arg_type = determin_argtype(pred,nearlest_idmorph,arg['arg_type'],dep_trees)
                         goldchain = goldchains[arg['arg_id']]
                         psa_instance = {
                             'context':context,
@@ -329,7 +331,4 @@ def main():
                         output_file.write(json.dumps(psa_instance) + '\n')
             output_file.close()
 if __name__ == '__main__':
-    # with open('/home/sibava/PAS-T5/datasets/sampleNTC/dev/950112-0000-950112002.ntc',mode='r') as f:
-    #     ntc_text = f.read()
-    # pprint(make_dep_tree(ntc_text))
     main()
