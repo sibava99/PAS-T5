@@ -82,7 +82,11 @@ def main(triplet:list)->str:
 		'gold_arguments':gold_arguments,
 		'predicate':pred_surface,
 		'arg_types':arg_types,
-		'alt_type':alt_type
+		'alt_type':alt_type,
+		'context':context,
+		'pred_sent_index':pred_sent_idx,
+		'pred_indices':pred_indices,
+		'ntc_path':os.path.basename(ga_dict['ntc_path'])
 	}
 	return json.dumps(t5_dict)
 		

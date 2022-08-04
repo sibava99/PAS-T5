@@ -45,6 +45,15 @@ class IdMorph(TypedDict):
     morph_bunsetsu_index:int
 
 class Pred(TypedDict):
+    """
+    述語がもつ情報を表す
+    * surface_string :　述語の出現系
+    * alt_type : 述語の態(active,passive,causative)
+    * sent_index : 述語が出現する文番号
+    * pred_indices : 述語が出現する文中の位置。[再開,する]のようなサ変動詞では[29,30]のようになる
+    * pred_bunsetsu_index : 述語が出現する文節番号
+    * arg_list : 述語がもつガ、ヲ、ニ項の情報を表す。
+    """
     surface_string:str
     alt_type:str
     sent_index:int
