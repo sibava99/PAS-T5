@@ -141,21 +141,22 @@ def make_dfdict(decoded_path:str)->dict:
 	for line in lines:
 		psa_instance= json.loads(line)
 		gold_arg_type = psa_instance['arg_type']
-		if(psa_instance['output'] == ''):
-			if(gold_arg_type == 'none'):
+		if(gold_arg_type == 'none'):
+			if(psa_instance['output'] == ''):
 				continue
 			else:
-				results[gold_arg_type]['fn'].append(psa_instance)
-		else:
+				sys_arg_type = search_argtype(psa_instance)
+				results[sys_arg_type]['fp'].append(psa_instance)
+		elif psa_instance['output'] != '':
 			answer = is_correct(psa_instance['output'],psa_instance['gold_arguments'])
-
 			if(answer):
 				results[gold_arg_type]['tp'].append(psa_instance)
 			else:
 				sys_arg_type = search_argtype(psa_instance)
 				results[sys_arg_type]['fp'].append(psa_instance)
 				results[gold_arg_type]['fn'].append(psa_instance)
-	
+		else:
+			results[gold_arg_type]['fn'].append(psa_instance)
 	return results
 
 parser = create_parser()
@@ -177,7 +178,6 @@ for ntc_path in ntc_paths:
 
 results = make_dfdict(args.decode)
 
-for result in results:
-	pprint(result)
+pprint(results)
 
 
