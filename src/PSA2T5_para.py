@@ -21,19 +21,19 @@ def create_parser():
 
 	return parser
 
-def edit_argsurface(arg_dict:dict)->str:
-	if(arg_dict['arg_type'] == 'none'):
+def edit_argsurface(arg:dict)->str:
+	if(arg['arg_type'] == 'none'):
 		arg_surface = ''
 		return arg_surface
-	elif(arg_dict['arg_type'] == 'exog'):
+	elif(arg['arg_type'] == 'exog'):
 		arg_surface = '<extra_id_99>'
-	elif(arg_dict['arg_type'] == 'exo1'):
+	elif(arg['arg_type'] == 'exo1'):
 		arg_surface = '<extra_id_98>'
-	elif(arg_dict['arg_type'] == 'exo2'):
+	elif(arg['arg_type'] == 'exo2'):
 		arg_surface = '<extra_id_97>'
 	else:
-		arg_surface = arg_dict['arg_surface']
-	surface = arg_surface + case_roma_kana[arg_dict['case_type']]
+		arg_surface = arg['arg_surface']
+	surface = arg_surface + case_roma_kana[arg['case_type']]
 	return surface
 def edit_goldchain(gold_chain:str)->set:
 	if(gold_chain == ['exog']):
@@ -48,14 +48,14 @@ def edit_goldchain(gold_chain:str)->set:
 
 def main(triplet:list)->str:
 	ga_str,o_str,ni_str = triplet
-	ga_dict = json.loads(ga_str)
-	o_dict = json.loads(o_str) 
-	ni_dict = json.loads(ni_str)
-	dicts = [ga_dict,o_dict,ni_dict]
+	ga_instance = json.loads(ga_str)
+	o_instance = json.loads(o_str) 
+	ni_instance = json.loads(ni_str)
+	instances = [ga_instance,o_instance,ni_instance]
 
-	context = ga_dict['context']
-	pred_sent_idx = ga_dict['pred_sent_index']
-	pred_indices = ga_dict['pred_indices']
+	context = ga_instance['context']
+	pred_sent_idx = ga_instance['pred_sent_index']
+	pred_indices = ga_instance['pred_indices']
 	context[pred_sent_idx].insert(pred_indices[0],"<extra_id_0>")
 	context[pred_sent_idx].insert(pred_indices[-1] + 2,"<extra_id_1>")
 	concated_context = ''.join(list(itertools.chain.from_iterable(context)))
@@ -66,15 +66,15 @@ def main(triplet:list)->str:
 	gold_arguments = {}
 	arg_types = {}
 	
-	for arg_dict in dicts:
-		case_type = arg_dict['case_type']
-		arg_and_case += edit_argsurface(arg_dict)
-		gold_arguments[case_type] = edit_goldchain(arg_dict['goldchain'])
-		arg_types[case_type]  = arg_dict['arg_type']
-	pred_surface = ga_dict['pred_surface']
+	for arg in instances:
+		case_type = arg['case_type']
+		arg_and_case += edit_argsurface(arg)
+		gold_arguments[case_type] = edit_goldchain(arg['goldchain'])
+		arg_types[case_type]  = arg['arg_type']
+	pred_surface = ga_instance['pred_surface']
 	label = arg_and_case + pred_surface
 	label_ids = tokenizer(arg_and_case + pred_surface,max_length=30,padding="max_length").input_ids
-	alt_type = ga_dict['alt_type']		
+	alt_type = ga_instance['alt_type']		
 
 	t5_dict = {
 		'input_ids':truncated_input_ids,
@@ -86,7 +86,8 @@ def main(triplet:list)->str:
 		'context':context,
 		'pred_sent_index':pred_sent_idx,
 		'pred_indices':pred_indices,
-		'ntc_path':os.path.basename(ga_dict['ntc_path'])
+		'pred_bunsetsu_index':ga_instance['pred_bunsetsu_index'],
+		'ntc_path':os.path.basename(ga_instance['ntc_path'])
 	}
 	return json.dumps(t5_dict)
 		

@@ -331,11 +331,13 @@ def main():
                             'alt_type':pred['alt_type'],
                             'pred_sent_index':pred['sent_index'],
                             'pred_indices':pred['pred_indices'],
+                            'pred_bunsetsu_index':pred['pred_bunsetsu_index'],
                             'case_type':arg['case_type'],
                             'arg_type':arg_type,
                             'arg_surface':nearlest_idmorph['surface_string'],
                             'arg_sent_index':nearlest_idmorph['sent_index'],
                             'arg_indices':nearlest_idmorph['morph_indices'],
+                            'arg_bunsetsu_index':nearlest_idmorph['morph_bunsetsu_index'],
                             'goldchain':goldchain,
                             'ntc_path':ntc_path
                         }
