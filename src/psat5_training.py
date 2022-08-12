@@ -47,8 +47,11 @@ def create_parser():
                         help="number of batch size")
     parser.add_argument('--epoch',type=int, required=True,
                         help="number of epoch")
+    parser.add_argument('--model',type=str,default="megagonlabs/t5-base-japanese-web",
+                        help='t5 pretrained model')
 
     return parser
+
 
 def main():
     parser = create_parser()
@@ -57,8 +60,8 @@ def main():
     os.mkdir(output)
     logzero.logfile(os.path.join(output,'trainig.log'))
     logger.info(args)
-    mega_tokenizer = T5Tokenizer.from_pretrained("megagonlabs/t5-base-japanese-web")
-    mega_model = T5ForConditionalGeneration.from_pretrained("megagonlabs/t5-base-japanese-web")
+    mega_tokenizer = T5Tokenizer.from_pretrained(args.model)
+    mega_model = T5ForConditionalGeneration.from_pretrained(args.model)
     mega_model.resize_token_embeddings(len(mega_tokenizer))
 
     dataset = load_dataset('json',data_files={"train":args.train,

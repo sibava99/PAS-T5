@@ -63,10 +63,11 @@ class Pred(TypedDict):
 
 def create_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ntc_dir',help='path to NTC')
-    parser.add_argument('--output_path',help='output path')
-    parser.add_argument('--concat',action='store_true',help='Suffixes are treated as terms by concatenating with the preceding morpheme')
-    
+    parser.add_argument('--ntc_dir','-n',help='path to NTC')
+    parser.add_argument('--output_path','-o',help='output path')
+    parser.add_argument('--concat','-c',action='store_true',help='Suffixes are treated as terms by concatenating with the preceding morpheme')
+    parser.add_argument('--excl_exo',action='store_true',help='exclude exophora from analysis object')
+
     return parser
 
 def extract_pat(pat:str,text:str,group:int = 1)->str:
@@ -80,6 +81,7 @@ def extract_pat(pat:str,text:str,group:int = 1)->str:
     return result
 
 def _concat_arg(lines,line_index,morph_index,surface_string,morph_indices,concat):
+
     surface_string = lines[line_index].split()[0] + surface_string
     morph_indices.insert(0,morph_index)
     previous_line = lines[line_index - 1]
@@ -89,6 +91,12 @@ def _concat_arg(lines,line_index,morph_index,surface_string,morph_indices,concat
 
 
 def create_arglist(psa_tag:str) -> list[Arg]:
+    """predがもつArgの情報をまとめたリストを出力
+    Args:
+        psa_tag (str): 述語項構造のタグ
+    Returns:
+        list[Arg]: predがもつArgのリスト
+    """
     arg_list = []
     for case in ['ga','o','ni']:
         arg_id = extract_pat(case + case_id_pat,psa_tag)
@@ -143,6 +151,14 @@ def extract_psa_info(ntc_text:str,concat:bool) -> dict:
         'exog':[exog],
         'exo1':[exo1],
         'exo2':[exo2],
+        'none':[none]
+    } 
+
+    if(excl_exo): 
+        idmorphs = {
+        'exog':[none],
+        'exo1':[none],
+        'exo2':[none],
         'none':[none]
     } 
 
@@ -344,4 +360,6 @@ def main():
                         output_file.write(json.dumps(psa_instance) + '\n')
             output_file.close()
 if __name__ == '__main__':
+    excl_exo = True
     main()
+    

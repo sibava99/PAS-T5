@@ -2,3 +2,5 @@ models/
 decoded/
 datasets/
 *.log
+score/
+output/
