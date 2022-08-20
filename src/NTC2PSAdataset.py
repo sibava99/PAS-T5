@@ -284,6 +284,8 @@ def determin_argtype(pred:Pred,idmorph:IdMorph,arg_type:str,dep_trees:list)->str
     elif(arg_type == 'zero' and (pred['sent_index'] != idmorph['sent_index'])):
         return 'inter' 
     elif(arg_type == 'undef'):
+        if(idmorph['surface_string'].startswith('exo')):
+            return idmorph['surface_string']
         if(pred['sent_index'] != idmorph['sent_index']):
             return 'inter'
         elif(pred['pred_bunsetsu_index'] == dep_tree[idmorph['morph_bunsetsu_index']] or idmorph['morph_bunsetsu_index'] == dep_tree[pred['pred_bunsetsu_index']] or pred['pred_bunsetsu_index'] == idmorph['morph_bunsetsu_index']):
