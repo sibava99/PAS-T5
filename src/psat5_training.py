@@ -17,8 +17,6 @@ from transformers import (
     T5Tokenizer,
     Trainer,
     TrainingArguments,
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM,
     T5Config
 )
 from transformers.optimization import Adafactor, AdafactorSchedule

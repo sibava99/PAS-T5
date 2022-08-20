@@ -31,7 +31,7 @@ class IdMorph(TypedDict):
     """
     ガ格，ヲ格，ニ格の格要素となりうる表現の情報
 
-    * surface_string : 形態素の出現系
+    * surface_string : 形態素の出現形
     * eq_group : 共参照グループ。この値が同じ形態素は共参照関係にある
     * sent_index : 形態素が出現する文番号
     * morph_indices : 形態素が出現する文中の位置。形態素が[佐藤,さん]のように分離されているときは[29,30]のようになる
@@ -104,6 +104,7 @@ def create_arglist(psa_tag:str) -> list[Arg]:
         if (arg_id != '' and arg_type == ''):
             arg_type = 'undef' #サ変名詞や名詞+判定詞においてtypeが記載されていない場合
         elif (arg_id == '' and arg_type == ''):
+        # elif (arg_id == '' and arg_type == '' or arg_id.startswith('exo') and arg_type == 'zero'):
             arg_id = 'none'
             arg_type = 'none'
         arg:Arg = {
@@ -154,13 +155,13 @@ def extract_psa_info(ntc_text:str,concat:bool) -> dict:
         'none':[none]
     } 
 
-    if(excl_exo): 
-        idmorphs = {
-        'exog':[none],
-        'exo1':[none],
-        'exo2':[none],
-        'none':[none]
-    } 
+    # if(excl_exo): 
+    #     idmorphs = {
+    #     'exog':[none],
+    #     'exo1':[none],
+    #     'exo2':[none],
+    #     'none':[none]
+    # } 
 
     sentences = [[]]
     sent_index = 0
@@ -252,18 +253,9 @@ def search_nearest_idmorph(coref_list:list,pred_sent_index:str,pred_indices:list
         arg_index = calc_abs_index(sentences,int(morph_sent_index),int(morph_indices[0]))
         arg_pred_distance = abs(pred_index - arg_index)
         if(arg_pred_distance < min_arg_pred_distance):
-            # if(arg_pred_distance > 0):
-            #     nearest_anaphora = arg
-            # else:
-            #     nearest_cataphora = arg
-            # min_pred_distance = arg_pred_distance
             min_arg_pred_distance = arg_pred_distance
             nearest_arg = arg
     return nearest_arg
-        # try:
-        #     return nearest_anaphora
-        # except NameError:
-        #     return nearest_cataphora
 
 def make_dep_trees(ntc_text:str)->list:
     lines = ntc_text.splitlines()
@@ -360,6 +352,5 @@ def main():
                         output_file.write(json.dumps(psa_instance) + '\n')
             output_file.close()
 if __name__ == '__main__':
-    excl_exo = True
     main()
     

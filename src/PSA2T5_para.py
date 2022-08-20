@@ -58,10 +58,18 @@ def main(triplet:list)->str:
 	pred_indices = ga_instance['pred_indices']
 	context[pred_sent_idx].insert(pred_indices[0],"<extra_id_0>")
 	context[pred_sent_idx].insert(pred_indices[-1] + 2,"<extra_id_1>")
-	concated_context = ''.join(list(itertools.chain.from_iterable(context)))
-	padded_input_ids = tokenizer(concated_context,max_length=512,padding="max_length").input_ids
-	truncated_input_ids = padded_input_ids[len(padded_input_ids)-512:]
-
+	# concated_context = ''.join(list(itertools.chain.from_iterable(context)))
+	# padded_input_ids = tokenizer(concated_context,max_length=512,padding="max_length").input_ids
+	# truncated_input_ids = padded_input_ids[len(padded_input_ids)-512:]
+	
+	context_ids = tokenizer([''.join(sent) for sent in context],add_special_tokens=False).input_ids
+	input_ids = [tokenizer.eos_token_id]
+	for sentence_ids in context_ids[::-1]:
+		if len(input_ids) + len(sentence_ids) < 512:
+			input_ids = sentence_ids + input_ids
+	input_ids += [tokenizer.pad_token_id] * (512 - len(input_ids))
+	truncated_input_ids = input_ids
+	
 	arg_and_case = ''
 	gold_arguments = {}
 	arg_types = {}
