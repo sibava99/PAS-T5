@@ -67,6 +67,8 @@ def main(triplet:list)->str:
 	for sentence_ids in context_ids[::-1]:
 		if len(input_ids) + len(sentence_ids) < 512:
 			input_ids = sentence_ids + input_ids
+		else:
+			break
 	input_ids += [tokenizer.pad_token_id] * (512 - len(input_ids))
 	truncated_input_ids = input_ids
 	
