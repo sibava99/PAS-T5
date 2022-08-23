@@ -24,8 +24,7 @@ def create_parser():
 
 def edit_argsurface(arg:dict)->str:
 	if(arg['arg_type'] == 'none'):
-		arg_surface = ''
-		return arg_surface
+		return ''
 	elif(arg['arg_type'] == 'exog'):
 		arg_surface = '<extra_id_99>'
 	elif(arg['arg_type'] == 'exo1'):
@@ -37,11 +36,11 @@ def edit_argsurface(arg:dict)->str:
 	surface = arg_surface + case_roma_kana[arg['case_type']]
 	return surface
 def edit_goldchain(gold_chain:str)->set:
-	if(gold_chain == ['exog']):
+	if(gold_chain == ["exog"]):
 		new_chain = ['<extra_id_99>']
-	elif(gold_chain == ['exo1']):
+	elif(gold_chain == ["exo1"]):
 		new_chain = ['<extra_id_98>']
-	elif(gold_chain == ['exo2']):
+	elif(gold_chain == ["exo2"]):
 		new_chain = ['<extra_id_97>']
 	else:
 		new_chain = gold_chain
