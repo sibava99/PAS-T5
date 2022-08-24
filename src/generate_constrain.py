@@ -90,38 +90,36 @@ case_en_ja = {
 dataset = load_dataset('json',data_files={"test":args.test})
 input_dataset = dataset.with_format(type='torch',columns=['input_ids'])
 
-tensor_dataloader = DataLoader(input_dataset['test'],batch_size=16)
-pas_dataset = iter(dataset['test'])
-
 with open(args.output,mode='w') as f:
     pas_dataset = iter(dataset['test'])
-    dataloader = DataLoader(dataset['test'])
-    for batch_input in tqdm(iter(tensor_dataloader)):
-        outputs = t5_model.generate(batch_input['input_ids'].to(device),bad_ids=[[x] for x in range(32000,32100)])
-        for output in outputs:
-            psa_instance = next(pas_dataset)
-            alt_type = psa_instance['alt_type']
-            predicate = psa_instance['predicate']
-            for case in ['ga','o','ni']:
-                # if (psa_instance['arg_types'][case] == None):
-                #     continue
-                assert psa_instance['arg_types'][case] != None
-                argument = extract_argument(output,case)
-                # argument = t5_tokenizer.decode(output,skip_special_tokens=True)
-                decode_dict = {
-                    'output':argument,
-                    'gold_arguments':psa_instance['gold_arguments'][case],
-                    'case_name':case,
-                    'arg_type':psa_instance['arg_types'][case],
-                    'predicate':predicate,
-                    'pred_sent_index':psa_instance['pred_sent_index'],
-                    'pred_indices':psa_instance['pred_indices'],
-                    'pred_bunsetsu_index':psa_instance['pred_bunsetsu_index'],
-                    'alt_type':alt_type,
-                    'output_sentence':t5_tokenizer.decode(output),
-                    'context':psa_instance['context'],
-                    'ntc_path':psa_instance['ntc_path']
-                    }
-                f.write(json.dumps(decode_dict) + '\n')
+    dataloader = DataLoader(dataset['test'],batch_size=1)
+    outputs = []
+    for input in tqdm(iter(dataloader)):
+        outputs.append(t5_model.generate(input['input_ids'].to(device),bad_ids=[[x] for x in range(32000,32100)]))
+    for output in outputs:
+        psa_instance = next(pas_dataset)
+        alt_type = psa_instance['alt_type']
+        predicate = psa_instance['predicate']
+        for case in ['ga','o','ni']:
+            # if (psa_instance['arg_types'][case] == None):
+            #     continue
+            assert psa_instance['arg_types'][case] != None
+            argument = extract_argument(output,case)
+            # argument = t5_tokenizer.decode(output,skip_special_tokens=True)
+            decode_dict = {
+                'output':argument,
+                'gold_arguments':psa_instance['gold_arguments'][case],
+                'case_name':case,
+                'arg_type':psa_instance['arg_types'][case],
+                'predicate':predicate,
+                'pred_sent_index':psa_instance['pred_sent_index'],
+                'pred_indices':psa_instance['pred_indices'],
+                'pred_bunsetsu_index':psa_instance['pred_bunsetsu_index'],
+                'alt_type':alt_type,
+                'output_sentence':t5_tokenizer.decode(output),
+                'context':psa_instance['context'],
+                'ntc_path':psa_instance['ntc_path']
+                }
+            f.write(json.dumps(decode_dict) + '\n')
 
 
