@@ -101,10 +101,11 @@ def create_arglist(psa_tag:str) -> list[Arg]:
     for case in ['ga','o','ni']:
         arg_id = extract_pat(case + case_id_pat,psa_tag)
         arg_type = extract_pat(case + arg_type_pat,psa_tag)
-        if (arg_id != '' and arg_type == ''):
-            arg_type = 'undef' #サ変名詞や名詞+判定詞においてtypeが記載されていない場合
-        elif (arg_id == '' and arg_type == ''):
-        # elif (arg_id == '' and arg_type == '' or arg_id.startswith('exo') and arg_type == 'zero'):
+        # if (arg_id != '' and arg_type == ''):
+        #     arg_type = 'undef' 
+        #     #サ変名詞や名詞+判定詞においてtypeが記載されていない場合
+        # elif (arg_id == '' and arg_type == ''):
+        if (arg_id == '' or arg_type == ''):
             arg_id = 'none'
             arg_type = 'none'
         arg:Arg = {
@@ -155,13 +156,13 @@ def extract_psa_info(ntc_text:str,concat:bool) -> dict:
         'none':[none]
     } 
 
-    # if(excl_exo): 
-    #     idmorphs = {
-    #     'exog':[none],
-    #     'exo1':[none],
-    #     'exo2':[none],
-    #     'none':[none]
-    # } 
+    if(excl_exo): 
+        idmorphs = {
+        'exog':[none],
+        'exo1':[none],
+        'exo2':[none],
+        'none':[none]
+    } 
 
     sentences = [[]]
     sent_index = 0
@@ -354,5 +355,6 @@ def main():
                         output_file.write(json.dumps(psa_instance) + '\n')
             output_file.close()
 if __name__ == '__main__':
+    excl_exo =True
     main()
     

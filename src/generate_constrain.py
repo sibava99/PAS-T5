@@ -95,9 +95,9 @@ pas_dataset = iter(dataset['test'])
 
 with open(args.output,mode='w') as f:
     pas_dataset = iter(dataset['test'])
-    dataloader = DataLoader(dataset['test'],batch_size=16)
+    dataloader = DataLoader(dataset['test'])
     for batch_input in tqdm(iter(tensor_dataloader)):
-        outputs = t5_model.generate(batch_input['input_ids'].to(device),bad_words_ids=[[x] for x in range(32000,32100)])
+        outputs = t5_model.generate(batch_input['input_ids'].to(device),bad_ids=[[x] for x in range(32000,32100)])
         for output in outputs:
             psa_instance = next(pas_dataset)
             alt_type = psa_instance['alt_type']
